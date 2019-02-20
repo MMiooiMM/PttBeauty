@@ -19,6 +19,8 @@ const client = new line.Client(lineKey);
 var express = require('express')
 const app = express();
 
+var request = require('request');
+
 // register a webhook handler with middleware
 // about the middleware, please refer to doc
 app.post('/callback', line.middleware(lineKey), (req, res) => {
@@ -72,6 +74,27 @@ function handleEvent(event) {
       .catch(err => {
         console.log('Error getting documents', err);
       });
+  } else if (event.message.text == '..') {
+    request('https://www.ptt.cc/bbs/Beauty/index.html', function (error, response, body) {
+      // console.log('error:', error); // Print the error if one occurred
+      // console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      // console.log('body:', body); // Print the HTML for the Google homepage.
+      var begin = 0;
+      var end = 0;
+      var stop = body.indexOf('r-list-sep');
+      while (true) {
+        begin = body.indexOf('r-ent', end);
+        end = body.indexOf('meta', begin);
+        if (begin > stop)
+          break;
+        var nrec = body.substring(body.indexOf('f2">', begin) + 4, body.indexOf('</span>', begin));
+        var title = body.substring(body.indexOf('html">', begin) + 6, body.indexOf('</a>', begin));
+        var url = body.substring(body.indexOf('href="', begin) + 6, body.indexOf('html">', begin) + 4);
+        console.log('nrec:', nrec);
+        console.log('title:', title);
+        console.log('url:', url);
+      }
+    });
   } else {
     return Promise.resolve(200);
   }
