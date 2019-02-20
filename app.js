@@ -1,29 +1,11 @@
-const admin = require('firebase-admin');
+var admin = require('firebase-admin');
 
-var firebaseKey = require('./path/to/firebaseKey.json');
-var lineKey = require('./path/to/lineKey.json');
+const firebaseKey = require('./path/to/firebaseKey.json');
+const lineKey = require('./path/to/lineKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(firebaseKey)
 });
-
-/*
-  修正下列錯誤訊息：
-  // Old:
-  const date = snapshot.get('created_at');
-  // New:
-  const timestamp = snapshot.get('created_at');
-  const date = timestamp.toDate();
-  解決辦法：
-  https://stackoverflow.com/questions/50799024/how-to-set-timestampsinsnapshots-setting-with-firebase-admin-for-nodejs
-*/
-
-const settings = {
-  /* your settings... */
-  timestampsInSnapshots: true
-};
-
-admin.firestore().settings(settings);
 
 var db = admin.firestore();
 
@@ -58,22 +40,41 @@ function handleEvent(event) {
     // ignore non-text-message event
     return Promise.resolve(null);
   }
-  // create a echoing text message
-  const echo = {
-    type: 'text',
-    text: event.message.text
-  };
-  if (event.message.text == '抽') {
-    const echo2 = {
-      type: 'image',
-      originalContentUrl: 'https://i.imgur.com/uDlV8Le.jpg',
-      previewImageUrl: 'https://i.imgur.com/uDlV8Le.jpg'
-    };
-    return client.replyMessage(event.replyToken, echo2);
-  }
 
-  // use reply API
-  return client.replyMessage(event.replyToken, echo);
+  if (event.message.text == '.') {
+    var BeautyRef = db.collection('Beauty').get().then(snapshot => {
+        var random = getRandomInt(snapshot._size)
+        var index = 0;
+        snapshot.forEach(doc => {
+          if (index == random) {
+            db.collection('Beauty').doc(doc.id).collection('images').get().then(snapshot2 => {
+                var random = getRandomInt(snapshot2._size)
+                var index = 0;
+                snapshot2.forEach(doc => {
+                  if (index == random) {
+                    const echo2 = {
+                      type: 'image',
+                      originalContentUrl: doc.data().url,
+                      previewImageUrl: doc.data().url
+                    };
+                    return client.replyMessage(event.replyToken, echo2);
+                  }
+                  index++;
+                });
+              })
+              .catch(err => {
+                console.log('Error getting documents', err);
+              });
+          }
+          index++;
+        });
+      })
+      .catch(err => {
+        console.log('Error getting documents', err);
+      });
+  } else {
+    return Promise.resolve(200);
+  }
 }
 
 // listen on port
@@ -81,3 +82,7 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`listening on ${port}`);
 });
+
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
