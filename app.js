@@ -42,14 +42,15 @@ function handleEvent(event) {
     // ignore non-text-message event
     return Promise.resolve(null);
   }
+  const BeautyRef = db.collection('Beauty');
   if (event.message.text == '.') {
-    var BeautyRef = db.collection('Beauty').get().then(snapshot => {
-        var random = getRandomInt(snapshot._size)
+    BeautyRef.get().then(snapshot => {
+        var random = getRandomInt(snapshot.size)
         var index = 0;
         snapshot.forEach(doc => {
           if (index == random) {
-            db.collection('Beauty').doc(doc.id).collection('images').get().then(snapshot2 => {
-                var random = getRandomInt(snapshot2._size)
+            BeautyRef.doc(doc.id).collection('images').get().then(snapshot2 => {
+                var random = getRandomInt(snapshot2.size)
                 var index = 0;
                 snapshot2.forEach(doc => {
                   if (index == random) {
@@ -86,10 +87,11 @@ function handleEvent(event) {
         const nrec = (body.indexOf('span', begin) > end) ? 0 : body.substring(body.indexOf('<span', begin) + 20, body.indexOf('</span>', begin));
         const title = body.substring(body.indexOf('html">', begin) + 6, body.indexOf('</a>', begin));
         const url = body.substring(body.indexOf('href="', begin) + 6, body.indexOf('html">', begin) + 4);
-        db.collection('Beauty').where('url', '==', url).get().then(snap => {
-          const size = snap.size; // will return the collection size
+        BeautyRef.where('url', '==', url).get().then(snap => {
+          const size = snap.size; // will return the collection size          
+
           if (size == 0) {
-            db.collection('Beauty').add({
+            BeautyRef.add({
               nrec: nrec,
               title: title,
               url: url
@@ -108,6 +110,12 @@ function handleEvent(event) {
                 }
               });
             });
+          } else {
+            snap.forEach(doc => {
+              BeautyRef.doc(doc.id).update({
+                nrec: nrec
+              })
+            })
           }
         });
       }
