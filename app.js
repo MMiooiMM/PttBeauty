@@ -42,7 +42,6 @@ function handleEvent(event) {
     // ignore non-text-message event
     return Promise.resolve(null);
   }
-
   if (event.message.text == '.') {
     var BeautyRef = db.collection('Beauty').get().then(snapshot => {
         var random = getRandomInt(snapshot._size)
@@ -76,9 +75,6 @@ function handleEvent(event) {
       });
   } else if (event.message.text == '..') {
     request('https://www.ptt.cc/bbs/Beauty/index.html', function (error, response, body) {
-      // console.log('error:', error); // Print the error if one occurred
-      // console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-      // console.log('body:', body); // Print the HTML for the Google homepage.
       var begin = 0;
       var end = 0;
       var stop = body.indexOf('r-list-sep');
@@ -87,12 +83,33 @@ function handleEvent(event) {
         end = body.indexOf('meta', begin);
         if (begin > stop)
           break;
-        var nrec = body.substring(body.indexOf('f2">', begin) + 4, body.indexOf('</span>', begin));
-        var title = body.substring(body.indexOf('html">', begin) + 6, body.indexOf('</a>', begin));
-        var url = body.substring(body.indexOf('href="', begin) + 6, body.indexOf('html">', begin) + 4);
-        console.log('nrec:', nrec);
-        console.log('title:', title);
-        console.log('url:', url);
+        const nrec = (body.indexOf('span', begin) > end) ? 0 : body.substring(body.indexOf('<span', begin) + 20, body.indexOf('</span>', begin));
+        const title = body.substring(body.indexOf('html">', begin) + 6, body.indexOf('</a>', begin));
+        const url = body.substring(body.indexOf('href="', begin) + 6, body.indexOf('html">', begin) + 4);
+        db.collection('Beauty').where('url', '==', url).get().then(snap => {
+          const size = snap.size; // will return the collection size
+          if (size == 0) {
+            db.collection('Beauty').add({
+              nrec: nrec,
+              title: title,
+              url: url
+            }).then((ref) => {
+              request(`https://www.ptt.cc${url}`, function (error, response, body) {
+                var _begin = 0;
+                var _end = 0;
+                while (true) {
+                  _begin = body.indexOf('nofollow', _end);
+                  _end = body.indexOf('</a>', _begin);
+                  if (_begin == -1)
+                    break;
+                  ref.collection('images').add({
+                    url: body.substring(_begin + 10, _end)
+                  });
+                }
+              });
+            });
+          }
+        });
       }
     });
   } else {
