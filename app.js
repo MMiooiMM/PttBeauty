@@ -45,12 +45,23 @@ function handleEvent(event) {
     return Promise.resolve(null);
   }
   if (event.message.text == '抽') {
-    PickBeauty();
+    PickBeauty().then(val => {
+      return client.replyMessage(event.replyToken, {
+        type: 'image',
+        originalContentUrl: val,
+        previewImageUrl: val
+      });
+    });
   } else if (event.message.text == '...6...') {
     var url = 'https://www.ptt.cc/bbs/Beauty/index.html';
     getPage(url, 10);
   } else if (event.message.text == '...16...') {
     UpdateUrlList();
+  } else if (event.message.text.indexOf('測試') == 0) {
+    return client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: event.message.text
+    });
   } else {
     return Promise.resolve(200);
   }
@@ -112,21 +123,20 @@ function getPrevPage(url) {
 }
 
 function PickBeauty() {
-  UrlListDoc.get().then(doc => {
-    var arr = doc.data().value;
-    var random = getRandomInt(arr.length);
-    BeautyRef.where('url', '==', arr[random]).limit(1).get().then(snapshot => {
-      snapshot.forEach(doc => {
-        getImages(doc.data().url).then(value => {
-          var _random = getRandomInt(value.length);
-          return client.replyMessage(event.replyToken, {
-            type: 'image',
-            originalContentUrl: value[_random],
-            previewImageUrl: value[_random]
+
+  return new Promise(resolve => {
+    UrlListDoc.get().then(doc => {
+      var arr = doc.data().value;
+      var random = getRandomInt(arr.length);
+      BeautyRef.where('url', '==', arr[random]).limit(1).get().then(snapshot => {
+        snapshot.forEach(doc => {
+          getImages(doc.data().url).then(value => {
+            var _random = getRandomInt(value.length);
+            resolve(value[_random]);
           });
-        });
+        })
       })
-    })
+    });
   });
 }
 
