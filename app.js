@@ -9,7 +9,8 @@ admin.initializeApp({
 
 var db = admin.firestore();
 const BeautyRef = db.collection('Beauty');
-
+const LastResultRef = db.collection('LastResult');
+const UrlListDoc = db.collection('UrlList').doc('acwR9G4oJI2DLfHj9lWS');
 // 引用linebot SDK
 const line = require('@line/bot-sdk');
 
@@ -44,39 +45,12 @@ function handleEvent(event) {
     return Promise.resolve(null);
   }
   if (event.message.text == '抽') {
-    BeautyRef.get().then(snapshot => {
-        var random = getRandomInt(snapshot.size)
-        var index = 0;
-        snapshot.forEach(doc => {
-          if (index == random) {
-            BeautyRef.doc(doc.id).collection('images').get().then(snapshot2 => {
-                var random = getRandomInt(snapshot2.size)
-                var index = 0;
-                snapshot2.forEach(doc => {
-                  if (index == random) {
-                    const echo2 = {
-                      type: 'image',
-                      originalContentUrl: doc.data().url,
-                      previewImageUrl: doc.data().url
-                    };
-                    return client.replyMessage(event.replyToken, echo2);
-                  }
-                  index++;
-                });
-              })
-              .catch(err => {
-                console.log('Error getting documents', err);
-              });
-          }
-          index++;
-        });
-      })
-      .catch(err => {
-        console.log('Error getting documents', err);
-      });
-  } else if (event.message.text == '給我去爬文') {
+    PickBeauty();
+  } else if (event.message.text == '...6...') {
     var url = 'https://www.ptt.cc/bbs/Beauty/index.html';
-    getPage(url, 20);
+    getPage(url, 10);
+  } else if (event.message.text == '...16...') {
+    UpdateUrlList();
   } else {
     return Promise.resolve(200);
   }
@@ -92,20 +66,68 @@ function getRandomInt(max) {
   return Math.floor(Math.random() * Math.floor(max));
 }
 
+function getImages(url) {
+  return new Promise(resolve => {
+    request(`https://www.ptt.cc${url}`, function (error, response, body) {
+      var result = [];
+      var _begin = 0;
+      var _end = 0;
+      while (true) {
+        _begin = body.indexOf('nofollow', _end);
+        _end = body.indexOf('</a>', _begin);
+        if (_begin == -1)
+          break;
+        var images = body.substring(_begin + 10, _end);
+        if (images.indexOf('imgur') != -1) {
+          if (images.indexOf('jpg') != -1) {
+            result.push(images);
+          } else {
+            result.push(images + '.jpg');
+          }
+        }
+      }
+      resolve(result);
+    });
+  });
+}
+
 function getPage(url, count) {
   if (count <= 0)
     return;
+  getPrevPage(url).then(value => {
+    getPage(value, count - 1);
+  });
+}
+
+function getPrevPage(url) {
   console.log(url);
-  new Promise(resolve => {
+  return new Promise(resolve => {
     request(url, function (error, response, body) {
       getBeauty(url);
       var begin = body.indexOf('最舊') + 37;
       var end = body.indexOf('上頁') - 11;
       resolve(`https://www.ptt.cc${body.substring(begin, end)}`);
+    });
+  });
+}
+
+function PickBeauty() {
+  UrlListDoc.get().then(doc => {
+    var arr = doc.data().value;
+    var random = getRandomInt(arr.length);
+    BeautyRef.where('url', '==', arr[random]).limit(1).get().then(snapshot => {
+      snapshot.forEach(doc => {
+        getImages(doc.data().url).then(value => {
+          var _random = getRandomInt(value.length);
+          return client.replyMessage(event.replyToken, {
+            type: 'image',
+            originalContentUrl: value[_random],
+            previewImageUrl: value[_random]
+          });
+        });
+      })
     })
-  }).then(value => {
-    getPage(value, count--);
-  })
+  });
 }
 
 function getBeauty(src) {
@@ -121,37 +143,37 @@ function getBeauty(src) {
       const nrec = (body.indexOf('span', begin) > end) ? 0 : body.substring(body.indexOf('<span', begin) + 20, body.indexOf('</span>', begin));
       const title = body.substring(body.indexOf('html">', begin) + 6, body.indexOf('</a>', begin));
       const url = body.substring(body.indexOf('href="', begin) + 6, body.indexOf('html">', begin) + 4);
+      if (title.indexOf('正妹') == -1) {
+        continue;
+      }
       BeautyRef.where('url', '==', url).get().then(snap => {
-        const size = snap.size; // will return the collection size          
-
+        const size = snap.size; // will return the collection size
+        console.log('title', title, 'size', size);
         if (size == 0) {
           BeautyRef.add({
             nrec: nrec,
-            title: title,
             url: url
-          }).then((ref) => {
-            request(`https://www.ptt.cc${url}`, function (error, response, body) {
-              var _begin = 0;
-              var _end = 0;
-              while (true) {
-                _begin = body.indexOf('nofollow', _end);
-                _end = body.indexOf('</a>', _begin);
-                if (_begin == -1)
-                  break;
-                ref.collection('images').add({
-                  url: body.substring(_begin + 10, _end)
-                });
-              }
-            });
           });
         } else {
           snap.forEach(doc => {
             BeautyRef.doc(doc.id).update({
               nrec: nrec
-            })
-          })
+            });
+          });
         }
       });
     }
+  });
+}
+
+function UpdateUrlList() {
+  BeautyRef.get().then(snap => {
+    var arr = [];
+    snap.forEach(doc => {
+      arr.push(doc.data().url);
+    });
+    UrlListDoc.update({
+      value: arr
+    });
   });
 }
