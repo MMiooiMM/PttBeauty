@@ -180,7 +180,10 @@ function UpdateUrlList() {
   BeautyRef.get().then(snap => {
     var arr = [];
     snap.forEach(doc => {
-      arr.push(doc.data().url);
+      arr.push({
+        url: doc.data().url,
+        nrec: doc.data().nrec
+      });
     });
     UrlListDoc.update({
       value: arr
