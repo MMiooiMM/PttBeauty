@@ -44,8 +44,10 @@ function handleEvent(event) {
     // ignore non-text-message event
     return Promise.resolve(null);
   }
-  if (event.message.text == '抽') {
-    PickBeauty().then(val => {
+  if (event.message.text.indexOf('抽') == 0) {
+    var likes = parseInt(event.message.text.split(' ')[1]);
+    if (isNaN(likes)) likes = 0;
+    PickBeauty(likes).then(val => {
       return client.replyMessage(event.replyToken, {
         type: 'image',
         originalContentUrl: val,
@@ -122,16 +124,29 @@ function getPrevPage(url) {
   });
 }
 
-function PickBeauty() {
-
+function PickBeauty(likes) {
   return new Promise(resolve => {
     UrlListDoc.get().then(doc => {
-      var arr = doc.data().value;
-      var random = getRandomInt(arr.length);
-      BeautyRef.where('url', '==', arr[random]).limit(1).get().then(snapshot => {
+      var arr = doc.data().values;
+      var likeArr = [];
+      if (likes == 0) {
+        likeArr = arr;
+      } else {
+        arr.forEach(value => {
+          if (value.nrec >= likes || value.nrec == '爆')
+            likeArr.push(value)
+        });
+      }
+      var random = getRandomInt(likeArr.length);
+      BeautyRef.where('url', '==', likeArr[random].url).limit(1).get().then(snapshot => {
         snapshot.forEach(doc => {
           getImages(doc.data().url).then(value => {
             var _random = getRandomInt(value.length);
+            LastResultRef.add({
+              url: likeArr[random].url,
+              likes: likes,
+              date: new Date().getTime()
+            });
             resolve(value[_random]);
           });
         })
@@ -186,7 +201,7 @@ function UpdateUrlList() {
       });
     });
     UrlListDoc.update({
-      value: arr
+      values: arr
     });
   });
 }
