@@ -64,6 +64,13 @@ function handleEvent(event) {
       type: 'text',
       text: event.message.text
     });
+  } else if (event.message.text.indexOf('@@') == 0) {
+    getLastResult().then(value => {
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `https://www.ptt.cc${value}`
+      });
+    })
   } else {
     return Promise.resolve(200);
   }
@@ -142,11 +149,7 @@ function PickBeauty(likes) {
         snapshot.forEach(doc => {
           getImages(doc.data().url).then(value => {
             var _random = getRandomInt(value.length);
-            LastResultRef.add({
-              url: likeArr[random].url,
-              likes: likes,
-              date: new Date().getTime()
-            });
+            addLastResult(likeArr[random].url);
             resolve(value[_random]);
           });
         })
@@ -202,6 +205,23 @@ function UpdateUrlList() {
     });
     UrlListDoc.update({
       values: arr
+    });
+  });
+}
+
+function addLastResult(url) {
+  LastResultRef.add({
+    url: url,
+    date: new Date().getTime()
+  });
+}
+
+function getLastResult() {
+  return new Promise(resolve => {
+    LastResultRef.orderBy('date', 'desc').limit(1).get().then(snapshot => {
+      snapshot.forEach(doc => {
+        resolve(doc.data().url)
+      });
     });
   });
 }
