@@ -58,7 +58,7 @@ function handleEvent(event) {
     var url = 'https://www.ptt.cc/bbs/Beauty/index.html';
     getPage(url, 10);
   } else if (event.message.text == '...16...') {
-    UpdateUrlList();
+    RefreshUrlList();
   } else if (event.message.text.indexOf('測試') == 0) {
     return client.replyMessage(event.replyToken, {
       type: 'text',
@@ -71,6 +71,22 @@ function handleEvent(event) {
         text: `https://www.ptt.cc${value}`
       });
     })
+  } else if (event.message.text.indexOf('--') == 0) {
+    getLastResult().then(value => {
+      BeautyRef.where('url', '==', value).get().then(snapshot => {
+        snapshot.forEach(doc => {
+          BeautyRef.doc(doc.id).update({
+            url: doc.data().url,
+            nrec: doc.data().nrec,
+            beauty: false
+          })
+        })
+      })
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '移出 https://www.ptt.cc' + value
+      });
+    });
   } else {
     return Promise.resolve(200);
   }
@@ -180,7 +196,8 @@ function getBeauty(src) {
         if (size == 0) {
           BeautyRef.add({
             nrec: nrec,
-            url: url
+            url: url,
+            beauty: true
           });
         } else {
           snap.forEach(doc => {
@@ -194,13 +211,14 @@ function getBeauty(src) {
   });
 }
 
-function UpdateUrlList() {
+function RefreshUrlList() {
   BeautyRef.get().then(snap => {
     var arr = [];
     snap.forEach(doc => {
       arr.push({
         url: doc.data().url,
-        nrec: doc.data().nrec
+        nrec: doc.data().nrec,
+        beauty: doc.data().beauty
       });
     });
     UrlListDoc.update({
@@ -220,7 +238,7 @@ function getLastResult() {
   return new Promise(resolve => {
     LastResultRef.orderBy('date', 'desc').limit(1).get().then(snapshot => {
       snapshot.forEach(doc => {
-        resolve(doc.data().url)
+        resolve(doc.data().url);
       });
     });
   });
