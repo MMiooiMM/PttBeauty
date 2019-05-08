@@ -21,6 +21,16 @@ const client = new line.Client(lineKey);
 var express = require('express')
 const app = express();
 
+//http://javascript.ruanyifeng.com/nodejs/express.html#toc6
+// 加载hbs模块
+var hbs = require('hbs');
+
+// 指定模板文件的后缀名为html
+app.set('view engine', 'html');
+
+// 运行hbs模块
+app.engine('html', hbs.__express);
+
 var request = require('request');
 
 // register a webhook handler with middleware
@@ -33,6 +43,10 @@ app.post('/callback', line.middleware(lineKey), (req, res) => {
       console.error(err);
       res.status(500).end();
     });
+});
+
+app.get("/", function (request, response) {
+  response.render('index');
 });
 
 // event handler
