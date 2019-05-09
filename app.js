@@ -21,16 +21,6 @@ const client = new line.Client(lineKey);
 let express = require('express')
 const app = express();
 
-//http://javascript.ruanyifeng.com/nodejs/express.html#toc6
-// 加载hbs模块
-let hbs = require('hbs');
-
-// 指定模板文件的后缀名为html
-app.set('view engine', 'html');
-
-// 运行hbs模块
-app.engine('html', hbs.__express);
-
 let request = require('request');
 
 // register a webhook handler with middleware
@@ -45,9 +35,9 @@ app.post('/callback', line.middleware(lineKey), (req, res) => {
     });
 });
 
-app.get("/", function (request, response) {
-  response.render('index');
-});
+app.get('/', function (req, res) {
+  res.sendFile(__dirname + "/index.html");
+})
 
 // event handler
 function handleEvent(event) {
@@ -59,9 +49,8 @@ function handleEvent(event) {
     return Promise.resolve(null);
   }
   if (event.message.text.indexOf('抽') == 0) {
-    let likes = parseInt(event.message.text.split(' ')[1]);
-    if (isNaN(likes)) likes = 0;
-    PickBeauty(likes).then(val => {
+    let num = toNumber(event.message.text, 0);
+    PickBeauty(num).then(val => {
       return client.replyMessage(event.replyToken, {
         type: 'image',
         originalContentUrl: val,
@@ -79,18 +68,16 @@ function handleEvent(event) {
       text: event.message.text
     });
   } else if (event.message.text.indexOf('@@') == 0) {
-    let index = parseInt(event.message.text.split(' ')[1]);
-    if (isNaN(index) || index > 10) index = 1;
-    getLastResult(index).then(value => {
+    let num = toNumber(event.message.text, 1);
+    getLastResult(num).then(value => {
       return client.replyMessage(event.replyToken, {
         type: 'text',
         text: `https://www.ptt.cc${value}`
       });
     })
   } else if (event.message.text.indexOf('醜') == 0) {
-    let index = parseInt(event.message.text.split(' ')[1]);
-    if (isNaN(index) || index > 10) index = 1;
-    getLastResult(index).then(value => {
+    let num = toNumber(event.message.text, 1);
+    getLastResult(num).then(value => {
       BeautyRef.where('url', '==', value).get().then(snapshot => {
         snapshot.forEach(doc => {
           BeautyRef.doc(doc.id).update({
@@ -261,4 +248,14 @@ function getLastResult(num) {
       });
     });
   });
+}
+
+function toNumber(text, def) {
+  try {
+    let num = parseInt(text.split(' ')[1]);
+    if (isNaN(num)) num = def;
+    return num;
+  } catch (e) {
+    return def;
+  }
 }
